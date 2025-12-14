@@ -25,3 +25,4 @@ ollama pull qwen3-vl:235b-cloud
 
 
 #nohup  ollama run deepseek-v3.2:cloud 2>&1 &
+#https://github.com/copyleftdev/ai-testing-prompts
