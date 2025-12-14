@@ -1,65 +1,128 @@
 from pathlib import Path
+import os # Added for LLM API key check
+from typing import List # Added for type hinting
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
+from langchain_community.vectorstores import FAISS 
+from langchain_core.documents import Document 
 import PyPDF2
+# --- ADDED IMPORTS FOR LLM ---
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import PromptTemplate
+# -----------------------------
 
-# Use a relative path from the current file's directory
-BASE_DIR = Path(__file__).parent 
-RAG_DIR = BASE_DIR / "RAG"
-INDEX_DIR = BASE_DIR / "vectorstore"
+RAG_DIR = Path(__file__).parent / "RAG"
+INDEX_DIR = Path(__file__).parent / "vectorstore"
 MAX_CHUNKS = 300
 
 def load_rag_documents() -> list[Document]:
     """Load PDFs from RAG_DIR and split into documents."""
     documents = []
     if not RAG_DIR.exists():
-        print(f"Warning: RAG directory not found at {RAG_DIR}. Returning empty document list.")
         return []
-        
-    print(f"Searching for PDFs in {RAG_DIR}...")
     for pdf_file in RAG_DIR.glob("*.pdf"):
-        try:
-            with open(pdf_file, "rb") as f:
-                reader = PyPDF2.PdfReader(f)
-                text = ""
-                for page in reader.pages:
-                    text += page.extract_text() or ""
-                if text.strip():
-                    documents.append(Document(page_content=text, metadata={"source": pdf_file.name}))
-        except Exception as e:
-            print(f"Error processing PDF {pdf_file.name}: {e}")
-            
-    print(f"Found {len(documents)} document(s).")
+        with open(pdf_file, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() or ""
+            if text.strip():
+                # Ensure the source (file name) is saved in metadata
+                documents.append(Document(page_content=text, metadata={"source": pdf_file.name}))
     return documents
 
 def build_or_load_vectorstore(documents: list[Document]) -> FAISS:
     """Build FAISS vectorstore using Ollama embeddings."""
     if not documents:
-        # This check is also in ragtest.py, but remains a good practice here
-        raise ValueError("No documents were loaded to index!")
+        raise ValueError("No documents to index!")
 
-    # Apply chunk limit
+    # Limit chunks to avoid context length errors
     if len(documents) > MAX_CHUNKS:
-        print(f"Warning: Limiting documents from {len(documents)} to {MAX_CHUNKS} to avoid context issues.")
         documents = documents[:MAX_CHUNKS]
 
     # Split documents into smaller chunks
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     chunks = splitter.split_documents(documents)
-    print(f"Documents split into {len(chunks)} chunks.")
 
     # Build embeddings
-    # NOTE: This line may raise a connection error if Ollama is not running
-    print("Building embeddings using Ollama...")
     embeddings = OllamaEmbeddings(model="nomic-embed-text:latest")
     vectorstore = FAISS.from_documents(chunks, embeddings)
-    print("Vectorstore built successfully.")
     return vectorstore
 
-def retrieve_context(query: str, vectorstore: FAISS, k: int = 5) -> list[str]:
-    """Retrieve top-k relevant chunks for a query."""
-    print(f"Retrieving top {k} context chunk(s)...")
+# FIX 1: Change return type to list[Document] to allow source name retrieval
+def retrieve_context(query: str, vectorstore: FAISS, k: int = 5) -> list[Document]:
+    """Retrieve top-k relevant Document objects for a query."""
     results = vectorstore.similarity_search(query, k=k)
-    return [r.page_content for r in results]
+    return results
+
+def build_or_load_vectorstore(documents: list[Document]) -> FAISS:
+    """
+    Builds the FAISS vectorstore or loads it from cache using Gemini embeddings.
+    """
+    
+    # Note: If you want caching, you need to implement save/load logic here.
+    # For now, we'll just focus on getting it to run reliably.
+
+    if not documents:
+        raise ValueError("No documents to index!")
+
+    # Switch to Gemini embeddings
+    embeddings = get_gemini_embeddings() 
+
+    # Split documents into smaller chunks
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    chunks = splitter.split_documents(documents)
+
+    # Build embeddings using the cloud API
+    print(f"Building embeddings using {embeddings.model} model (Cloud API call)...")
+    vectorstore = FAISS.from_documents(chunks, embeddings)
+    
+    return vectorstore
+
+def generate_rag_response(context_docs: List[Document], query: str) -> str:
+    """
+    Generates a final answer using the retrieved context and a Gemini LLM, 
+    and appends the source file names to the output, without showing chunks.
+    """
+    if not os.getenv("GEMINI_API_KEY"):
+        return "Error: GEMINI_API_KEY environment variable is not set. Cannot call Gemini LLM."
+
+    # Using the user-requested model: gemini-3-pro-preview:latest
+    llm = ChatGoogleGenerativeAI(model="gemini-3-pro-preview:latest") 
+
+    # 1. Prepare context for the LLM
+    context_text = "\n\n".join([doc.page_content for doc in context_docs])
+    
+    # 2. Extract unique source names
+    sources = sorted(list(set([doc.metadata.get('source', 'Unknown File') for doc in context_docs])))
+    source_list = "\n".join([f"* {source}" for source in sources])
+
+    prompt_template = """
+    You are a helpful and accurate RAG assistant. 
+    Use ONLY the following retrieved context to answer the user's question. 
+    The answer MUST be in a human-understandable format. 
+    If the context does not contain the answer, state clearly and concisely: "I do not have the answer to that question in my documents."
+    
+    CONTEXT:
+    {context}
+    
+    QUESTION:
+    {question}
+    
+    ANSWER:
+    """
+    
+    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+    chain = prompt | llm
+    
+    print(f"Generating response with LLM ({llm.model} Cloud API call)...")
+
+    try:
+        response = chain.invoke({"context": context_text, "question": query})
+        final_answer = response.content.strip()
+    except Exception as e:
+        # Catch LLM specific errors (like quota/rate limit) and report them cleanly
+        final_answer = f"Error generating final response: {e}"
+        
+    # 3. Combine LLM response and source list
+    return f"{final_answer}\n\n--- Source Documents Used ---\n{source_list}"

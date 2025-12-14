@@ -1,11 +1,10 @@
 python-dotenv
 langchain
-langchain-community
-langchain-core # Added for Document import stability
-langchain-text-splitters
 langchain-ollama
+langchain-google-genai
 faiss-cpu
+openai
+langchain-community
 PyPDF2
 httpx
 pydantic
-openai
