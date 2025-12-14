@@ -4,8 +4,8 @@ set -e
 if ! command -v ollama >/dev/null 2>&1; then
   curl -fsSL https://ollama.com/install.sh | sh
 fi
-export OLLAMA_HOST=0.0.0.0:11434
-export OLLAMA_MODELS="$HOME/.ollama/models"
+#export OLLAMA_HOST=0.0.0.0:11434
+#export OLLAMA_MODELS="$HOME/.ollama/models"
 mkdir -p ~/.ollama
 
 # curl -fsSL https://ollama.com/install.sh | sh
@@ -18,4 +18,9 @@ fi
 ps aux | grep ollama
 ollama list
 curl http://localhost:11434/api/tags
+ollama pull deepseek-v3.2:cloud
+ollama pull gemini-3-pro-preview:latest
 ollama run gemini-3-pro-preview:latest --prompt "$(cat secure_prompt.txt)"
+
+
+#nohup  ollama run deepseek-v3.2:cloud 2>&1 &
