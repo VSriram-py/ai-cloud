@@ -1,6 +1,7 @@
 python-dotenv
 langchain
 langchain-community
+langchain-core # Added for Document import stability
 langchain-text-splitters
 langchain-ollama
 faiss-cpu
