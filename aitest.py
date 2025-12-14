@@ -38,6 +38,16 @@ def get_text(response):
         return response.content
     return str(response)
 
+def is_prompt_leak_attempt(text: str) -> bool:
+    keywords = [
+        "system prompt",
+        "secure prompt",
+        "show prompt",
+        "instructions",
+        "developer message"
+    ]
+    return any(k in text.lower() for k in keywords)
+
 def build_prompt(user_input: str) -> str:
     return f"""
 {secure_prompt}
@@ -68,11 +78,11 @@ while True:
         if is_exit_command(user_input):
             print("\n Exiting!")
             sys.exit(0)
-
+        if is_prompt_leak_attempt(user_input):
+            print("\nAccess denied: system instructions are protected.\n")
+            continue
         prompt = build_prompt(user_input)
-
         response = llm.invoke(prompt)
-
         response_text = get_text(response)
 
         if detect_violation(response_text):
