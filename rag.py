@@ -1,5 +1,5 @@
 from pathlib import Path
-import pickle
+#import pickle
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
@@ -80,19 +80,28 @@ def build_vectorstore(documents):
 # CACHE VECTORSTORE
 # -----------------------
 def build_or_load_vectorstore(documents):
-    index_file = INDEX_DIR / "faiss.pkl"
+    index_path = INDEX_DIR / "faiss_index"
 
-    if index_file.exists():
-        print("Loading cached FAISS index...")
-        with open(index_file, "rb") as f:
-            return pickle.load(f)
+    embeddings = OllamaEmbeddings(
+        model=EMBED_MODEL,
+        base_url="http://localhost:11434",
+    )
+
+    if index_path.exists():
+        print("📦 Loading cached FAISS index...")
+        return FAISS.load_local(
+            str(index_path),
+            embeddings,
+            allow_dangerous_deserialization=True,
+        )
 
     vectorstore = build_vectorstore(documents)
 
-    with open(index_file, "wb") as f:
-        pickle.dump(vectorstore, f)
+    print("💾 Saving FAISS index to disk...")
+    vectorstore.save_local(str(index_path))
 
     return vectorstore
+
 
 
 # -----------------------
