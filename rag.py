@@ -1,9 +1,10 @@
 from pathlib import Path
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter # Fix 1
 from langchain_ollama import OllamaEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.schema import Document
+from langchain_community.vectorstores import FAISS # Fix 2
+from langchain_core.documents import Document # FIX 3 (This is line 5)
 import PyPDF2
+
 
 RAG_DIR = Path(__file__).parent / "RAG"
 INDEX_DIR = Path(__file__).parent / "vectorstore"
@@ -12,6 +13,8 @@ MAX_CHUNKS = 300
 def load_rag_documents() -> list[Document]:
     """Load PDFs from RAG_DIR and split into documents."""
     documents = []
+    if not RAG_DIR.exists():
+        return []
     for pdf_file in RAG_DIR.glob("*.pdf"):
         with open(pdf_file, "rb") as f:
             reader = PyPDF2.PdfReader(f)
