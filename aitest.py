@@ -3,7 +3,7 @@ from langchain_ollama import ChatOllama
 from pathlib import Path
 
 # Load env variables
-load = load_dotenv("./../.env")
+load = load_dotenv(".env")
 FilePath = Path(__file__).parent / "secure_prompt.txt"
 
 with open(FilePath, "r", encoding="utf-8") as f:
@@ -20,3 +20,5 @@ llm = ChatOllama(
     system=secure_prompt
 )
 
+response = llm.invoke("Explain OAuth2 in one paragraph")
+print(response.content)

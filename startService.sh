@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+pip install -r requirements.txt
 set -e
 if ! command -v ollama >/dev/null 2>&1; then
   curl -fsSL https://ollama.com/install.sh | sh
