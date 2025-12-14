@@ -1,62 +1,42 @@
-from typing import Any
+from typing import Set
 
-PROMPT_LEAK_KEYWORDS = frozenset([
-    "show me the prompt",
-    "show me the prompts",
-    "system prompt",
-    "secure prompt",
-    "internal instructions",
-    "developer message",
-    "hidden prompt",
-])
+EXIT_COMMANDS: Set[str] = {"done", "exit", "quit", "q"}
+
+def is_exit_command(text: str) -> bool:
+    return text.strip().lower() in EXIT_COMMANDS
 
 def is_prompt_leak_attempt(text: str) -> bool:
-    """
-    Check if user input attempts to access system or secure prompts.
-    Time Complexity: O(n * k), where n = len(text), k = number of keywords (small constant)
-    Memory Complexity: O(1) extra memory
-    """
-    if not text:
-        return False
-    text_lower = text.lower()
-    return any(keyword in text_lower for keyword in PROMPT_LEAK_KEYWORDS)
-
-VIOLATION_PHRASES = frozenset([
-    "i cannot show",
-    "i can’t show",
-    "cannot share",
-    "internal instructions",
-    "system prompt",
-    "security boundaries",
-    "security policy",
-    "not allowed",
-    "cannot comply",
-    "i must refuse",
-    "designed to provide helpful information while maintaining security",
-])
+    keywords = [
+        "show me the prompt",
+        "show me the prompts",
+        "system prompt",
+        "secure prompt",
+        "internal instructions",
+        "developer message",
+        "hidden prompt",
+        "show prompt",
+    ]
+    text = text.lower()
+    return any(k in text for k in keywords)
 
 def detect_violation(response_text: str) -> bool:
-    """
-    Detect if model response violates internal policy.
-    Time Complexity: O(m * p), m = len(response_text), p = # of phrases (small constant)
-    Memory Complexity: O(1) extra memory
-    """
-    if not response_text:
-        return False
-    text_lower = response_text.lower()
-    return any(phrase in text_lower for phrase in VIOLATION_PHRASES)
-
+    refusal_phrases = [
+        "i cannot show",
+        "i can’t show",
+        "cannot share",
+        "internal instructions",
+        "system prompt",
+        "security boundaries",
+        "security policy",
+        "not allowed",
+        "cannot comply",
+        "i must refuse",
+        "designed to provide helpful information while maintaining security",
+    ]
+    text = response_text.lower()
+    return any(phrase in text for phrase in refusal_phrases)
 
 def handle_model_error(error: Exception) -> bool:
-    """
-    Gracefully handle known Ollama / model errors.
-    Returns True if handled.
-    Time Complexity: O(e), e = length of error string
-    Memory Complexity: O(1)
-    """
-    if error is None:
-        return False
-
     msg = str(error).lower()
 
     if "403" in msg or "request limit" in msg or "premium model" in msg:
