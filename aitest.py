@@ -12,11 +12,12 @@ with open(FilePath, "r", encoding="utf-8") as f:
 # Initialize LLM with system prompt
 llm = ChatOllama(
     #model="llama3.2:3b",
-    model="deepseek-v3.2:cloud",
+    #model="deepseek-v3.2:cloud",
+    model="gemini-3-pro-preview",
     base_url="http://localhost:11434",
     temperature=0.5,
-    max_retries=3,
-    max_tokens=2048,
+    #max_retries=3,
+    max_tokens=250,
     system=secure_prompt
 )
 
