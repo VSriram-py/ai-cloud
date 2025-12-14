@@ -1,15 +1,15 @@
 from pathlib import Path
-import os # Added for LLM API key check
-from typing import List # Added for type hinting
+import os
+from typing import List
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import FAISS 
 from langchain_core.documents import Document 
 import PyPDF2
-# --- ADDED IMPORTS FOR LLM ---
+# --- ADDED IMPORTS FOR LLM (Keep as requested) ---
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
-# -----------------------------
+# -------------------------------------------------
 
 RAG_DIR = Path(__file__).parent / "RAG"
 INDEX_DIR = Path(__file__).parent / "vectorstore"
@@ -31,6 +31,7 @@ def load_rag_documents() -> list[Document]:
                 documents.append(Document(page_content=text, metadata={"source": pdf_file.name}))
     return documents
 
+# ONLY ONE DEFINITION FOR build_or_load_vectorstore (Using Ollama as requested)
 def build_or_load_vectorstore(documents: list[Document]) -> FAISS:
     """Build FAISS vectorstore using Ollama embeddings."""
     if not documents:
@@ -49,36 +50,13 @@ def build_or_load_vectorstore(documents: list[Document]) -> FAISS:
     vectorstore = FAISS.from_documents(chunks, embeddings)
     return vectorstore
 
-# FIX 1: Change return type to list[Document] to allow source name retrieval
+# FIX 1: Returns Document objects to allow source name retrieval
 def retrieve_context(query: str, vectorstore: FAISS, k: int = 5) -> list[Document]:
     """Retrieve top-k relevant Document objects for a query."""
     results = vectorstore.similarity_search(query, k=k)
     return results
 
-def build_or_load_vectorstore(documents: list[Document]) -> FAISS:
-    """
-    Builds the FAISS vectorstore or loads it from cache using Gemini embeddings.
-    """
-    
-    # Note: If you want caching, you need to implement save/load logic here.
-    # For now, we'll just focus on getting it to run reliably.
-
-    if not documents:
-        raise ValueError("No documents to index!")
-
-    # Switch to Gemini embeddings
-    embeddings = get_gemini_embeddings() 
-
-    # Split documents into smaller chunks
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    chunks = splitter.split_documents(documents)
-
-    # Build embeddings using the cloud API
-    print(f"Building embeddings using {embeddings.model} model (Cloud API call)...")
-    vectorstore = FAISS.from_documents(chunks, embeddings)
-    
-    return vectorstore
-
+# FIX 2: Added function for LLM generation and source formatting
 def generate_rag_response(context_docs: List[Document], query: str) -> str:
     """
     Generates a final answer using the retrieved context and a Gemini LLM, 
@@ -121,7 +99,6 @@ def generate_rag_response(context_docs: List[Document], query: str) -> str:
         response = chain.invoke({"context": context_text, "question": query})
         final_answer = response.content.strip()
     except Exception as e:
-        # Catch LLM specific errors (like quota/rate limit) and report them cleanly
         final_answer = f"Error generating final response: {e}"
         
     # 3. Combine LLM response and source list
