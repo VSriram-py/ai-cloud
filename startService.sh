@@ -18,8 +18,9 @@ fi
 ps aux | grep ollama
 ollama list
 #curl http://localhost:11434/api/tags
-ollama pull deepseek-v3.2:cloud
+ollama pull deepseek-v3.1:671b-cloud
 ollama pull gemini-3-pro-preview:latest
+ollama pull qwen3-vl:235b-cloud
 #ollama run gemini-3-pro-preview:latest --prompt "$(cat secure_prompt.txt)"
 
 
