@@ -1,83 +1,93 @@
 from pathlib import Path
-from typing import List, Tuple
-from pypdf import PdfReader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
+import pickle
+
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaEmbeddings
 
+# -----------------------
+# CONFIG
+# -----------------------
+RAG_DIR = Path("RAG")
+INDEX_DIR = Path(".rag_index")
+INDEX_DIR.mkdir(exist_ok=True)
 
-def load_rag_documents(rag_dir: Path):
+MAX_CHUNKS = 300
+EMBED_MODEL = "nomic-embed-text"
+
+
+# -----------------------
+# LOAD DOCUMENTS (PDF)
+# -----------------------
+def load_rag_documents(rag_dir):
     documents = []
 
     if not rag_dir.exists():
+        print("RAG folder not found.")
         return documents
 
-    for path in rag_dir.rglob("*"):
-        try:
-            text = ""
+    for pdf in rag_dir.glob("*.pdf"):
+        loader = PyPDFLoader(str(pdf))
+        pages = loader.load()
 
-            if path.suffix.lower() == ".txt":
-                text = path.read_text(encoding="utf-8").strip()
-
-            elif path.suffix.lower() == ".pdf":
-                reader = PdfReader(path)
-                text = "\n".join(
-                    page.extract_text() or "" for page in reader.pages
-                ).strip()
-
-            if text:
-                documents.append(
-                    Document(
-                        page_content=text,
-                        metadata={"source": path.name}
-                    )
-                )
-
-        except Exception:
-            continue
+        for page in pages:
+            page.metadata["source"] = pdf.name
+            documents.append(page)
 
     return documents
 
 
-
-def build_vectorstore(documents: List[Document]) -> FAISS | None:
+# -----------------------
+# BUILD VECTORSTORE
+# -----------------------
+def build_vectorstore(documents):
     if not documents:
-        return None  # 🔴 critical guard
+        raise ValueError("No documents provided for vectorstore")
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=400,
-        chunk_overlap=40
-    )
+    if len(documents) > MAX_CHUNKS:
+        print(f"Limiting chunks from {len(documents)} → {MAX_CHUNKS}")
+        documents = documents[:MAX_CHUNKS]
 
-    chunks = splitter.split_documents(documents)
-
-    if not chunks:
-        return None  # 🔴 second guard
+    print(f"🔎 Building embeddings for {len(documents)} chunks...")
 
     embeddings = OllamaEmbeddings(
-        model="nomic-embed-text",
-        base_url="http://localhost:11434"
+        model=EMBED_MODEL,
+        base_url="http://localhost:11434",
     )
 
-    return FAISS.from_documents(chunks, embeddings)
+    vectorstore = FAISS.from_documents(documents, embeddings)
+    return vectorstore
 
 
-def retrieve_context(
-    vectorstore: FAISS | None,
-    query: str,
-    k: int = 3
-) -> Tuple[str, List[str]]:
+# -----------------------
+# CACHE LOAD / SAVE
+# -----------------------
+def build_or_load_vectorstore(documents):
+    index_file = INDEX_DIR / "faiss.pkl"
 
-    if vectorstore is None:
-        return "", []
+    if index_file.exists():
+        print("Loading cached FAISS index...")
+        with open(index_file, "rb") as f:
+            return pickle.load(f)
 
+    vectorstore = build_vectorstore(documents)
+
+    with open(index_file, "wb") as f:
+        pickle.dump(vectorstore, f)
+
+    return vectorstore
+
+
+# -----------------------
+# RETRIEVAL
+# -----------------------
+def retrieve_context(vectorstore, query, k=3):
     results = vectorstore.similarity_search(query, k=k)
 
     if not results:
         return "", []
 
-    context = "\n".join(r.page_content for r in results)
-    sources = list({r.metadata.get("source", "unknown") for r in results})
+    context = "\n\n".join(d.page_content for d in results)
+    sources = [d.metadata.get("source", "unknown") for d in results]
 
     return context, sources

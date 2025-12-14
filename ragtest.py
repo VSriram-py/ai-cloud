@@ -4,11 +4,8 @@ import sys
 from dotenv import load_dotenv
 from langchain_ollama import ChatOllama
 
-from rag import (
-    load_rag_documents,
-    build_vectorstore,
-    retrieve_context,
-)
+from rag import load_rag_documents, build_or_load_vectorstore, retrieve_context
+
 
 from utils import (
     is_exit_command,
@@ -21,7 +18,8 @@ from utils import (
 load_dotenv()
 
 BASE_DIR = Path(__file__).parent
-RAG_DIR = BASE_DIR / "RAG"
+#RAG_DIR = BASE_DIR / "RAG"
+RAG_DIR = Path("RAG")
 
 SECURE_PROMPT_FILE = BASE_DIR / "secure_prompt.txt"
 secure_prompt = SECURE_PROMPT_FILE.read_text(encoding="utf-8").strip()
@@ -36,7 +34,8 @@ llm = ChatOllama(
 
 
 documents = load_rag_documents(RAG_DIR)
-vectorstore = build_vectorstore(documents)
+vectorstore = build_or_load_vectorstore(documents)
+
 
 if not documents:
     print("\nWARNING: No readable documents found in RAG folder.\n")
