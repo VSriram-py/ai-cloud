@@ -15,3 +15,6 @@ mkdir -p ~/.ollama
 # curl -fsSL https://ollama.com/install.sh | sh
 # sudo systemctl daemon-reload
 # sudo systemctl enable ollama
+
+nohup ollama serve > ~/ollama.log 2>&1 &
+ollama run gemini-3-pro-preview:latest --prompt "$(cat secure_prompt.txt)"
