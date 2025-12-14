@@ -1,5 +1,6 @@
 from pathlib import Path
 import pickle
+
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaEmbeddings
@@ -11,14 +12,17 @@ RAG_DIR = Path("RAG")
 INDEX_DIR = Path(".rag_index")
 INDEX_DIR.mkdir(exist_ok=True)
 
-MAX_CHUNKS = 300
 EMBED_MODEL = "nomic-embed-text"
 
+CHUNK_SIZE = 500        # SAFE for Ollama
+CHUNK_OVERLAP = 50
+MAX_CHUNKS = 300        # HARD safety cap
+
 
 # -----------------------
-# LOAD DOCUMENTS (PDF)
+# LOAD + CHUNK PDFS
 # -----------------------
-def load_rag_documents(rag_dir):
+def load_rag_documents(rag_dir: Path):
     documents = []
 
     if not rag_dir.exists():
@@ -30,8 +34,24 @@ def load_rag_documents(rag_dir):
         pages = loader.load()
 
         for page in pages:
-            page.metadata["source"] = pdf.name
-            documents.append(page)
+            text = page.page_content
+            source = pdf.name
+
+            # Manual lightweight chunking (NO langchain splitter)
+            start = 0
+            while start < len(text):
+                chunk = text[start : start + CHUNK_SIZE]
+                documents.append(
+                    {
+                        "text": chunk,
+                        "source": source,
+                    }
+                )
+                start += CHUNK_SIZE - CHUNK_OVERLAP
+
+    if len(documents) > MAX_CHUNKS:
+        print(f"Limiting chunks from {len(documents)} → {MAX_CHUNKS}")
+        documents = documents[:MAX_CHUNKS]
 
     return documents
 
@@ -41,25 +61,23 @@ def load_rag_documents(rag_dir):
 # -----------------------
 def build_vectorstore(documents):
     if not documents:
-        raise ValueError("No documents provided for vectorstore")
-
-    if len(documents) > MAX_CHUNKS:
-        print(f"Limiting chunks from {len(documents)} → {MAX_CHUNKS}")
-        documents = documents[:MAX_CHUNKS]
+        raise ValueError("No documents to embed")
 
     print(f"Building embeddings for {len(documents)} chunks...")
+
+    texts = [d["text"] for d in documents]
+    metadatas = [{"source": d["source"]} for d in documents]
 
     embeddings = OllamaEmbeddings(
         model=EMBED_MODEL,
         base_url="http://localhost:11434",
     )
 
-    vectorstore = FAISS.from_documents(documents, embeddings)
-    return vectorstore
+    return FAISS.from_texts(texts, embeddings, metadatas=metadatas)
 
 
 # -----------------------
-# CACHE LOAD / SAVE
+# CACHE VECTORSTORE
 # -----------------------
 def build_or_load_vectorstore(documents):
     index_file = INDEX_DIR / "faiss.pkl"
