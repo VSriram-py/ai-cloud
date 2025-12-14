@@ -1,6 +1,5 @@
 from pathlib import Path
 import pickle
-
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaEmbeddings
@@ -48,7 +47,7 @@ def build_vectorstore(documents):
         print(f"Limiting chunks from {len(documents)} → {MAX_CHUNKS}")
         documents = documents[:MAX_CHUNKS]
 
-    print(f"🔎 Building embeddings for {len(documents)} chunks...")
+    print(f"Building embeddings for {len(documents)} chunks...")
 
     embeddings = OllamaEmbeddings(
         model=EMBED_MODEL,
