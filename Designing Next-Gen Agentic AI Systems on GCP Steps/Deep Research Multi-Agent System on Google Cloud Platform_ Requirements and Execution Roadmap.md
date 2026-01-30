@@ -96,5 +96,5 @@ The following roadmap details the sequential phases required to design, build, a
 9. [Google Cloud Products: Vertex AI Model Armor](https://cloud.google.com/products/model-armor)
 
 ---
-**Author:** Manus AI  
+**Author:** Sriram
 **Date:** January 30, 2026
