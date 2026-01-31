@@ -1,0 +1,38 @@
+# Deep Research Multi-Agent System (DR-MAS) - Test Suite Requirements
+# Python 3.11+
+
+# Core Dependencies
+google-cloud-aiplatform>=1.40.0
+google-cloud-bigquery>=3.14.0
+google-cloud-logging>=3.8.0
+google-cloud-trace>=1.11.0
+
+# Testing Framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+pytest-asyncio>=0.21.0
+
+# Data Processing
+pandas>=2.1.0
+numpy>=1.24.0
+
+# Utilities
+python-dateutil>=2.8.2
+dataclasses-json>=0.6.0
+
+# Optional: For LangGraph orchestration (when implementing full system)
+# langgraph>=0.0.20
+# langchain>=0.1.0
+# langchain-google-vertexai>=0.1.0
+
+# Optional: For visualization
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# Development Tools
+jupyter>=1.0.0
+ipython>=8.12.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
